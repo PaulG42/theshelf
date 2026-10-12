@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Shelf</title>
+<meta name="description" content="Une bibliothèque sur The Shelf">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F7F2EE; --wood: #5C3317; --terracotta: #D4956A;
+    --dark: #2C1A0E; --moss: #4A6741; --chalk: #E8E4DC; --slate: #1A2A1A;
+    --card: #FFFFFF; --line: rgba(44,26,14,.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--cream); color: var(--dark);
+         font-family: 'Lora', Georgia, serif; line-height: 1.5; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+  .brand { font-size: 13px; letter-spacing: .14em; text-transform: uppercase;
+           color: var(--wood); opacity: .7; text-align: center; margin-bottom: 28px; }
+  header { display: flex; gap: 18px; align-items: center; }
+  .avatar { width: 76px; height: 76px; border-radius: 50%; background: var(--wood);
+            color: var(--cream); display: grid; place-items: center;
+            font-size: 32px; font-weight: 600; flex: none; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  h1 { font-size: 28px; line-height: 1.2; }
+  .sub { color: var(--wood); font-size: 15px; }
+  .bio { margin-top: 18px; font-style: italic; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 26px 0 8px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+          padding: 12px 8px; text-align: center; }
+  .stat b { display: block; font-size: 22px; color: var(--wood); }
+  .stat span { font-size: 12px; }
+  h2 { font-size: 18px; margin: 34px 0 12px; }
+  .shelf { background: linear-gradient(#3A2010, #2A1810); border-radius: 10px;
+           padding: 18px 14px 0; border-bottom: 12px solid #6B4020; }
+  .row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 14px; scrollbar-width: thin; }
+  .book { flex: none; width: 92px; cursor: pointer; }
+  .cover { width: 92px; height: 136px; border-radius: 3px; object-fit: cover; display: block;
+           background: var(--terracotta); box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+  .fallback { display: grid; place-items: center; padding: 8px; text-align: center;
+              font-size: 11px; color: var(--cream); background: var(--wood); }
+  .list .book { width: auto; display: flex; gap: 14px; padding: 14px 0;
+                border-bottom: 1px solid var(--line); cursor: default; }
+  .list .cover { width: 56px; height: 84px; }
+  .t { font-weight: 600; }
+  .a { font-size: 13px; color: var(--wood); }
+  .stars { color: var(--terracotta); font-size: 14px; letter-spacing: 2px; margin-top: 2px; }
+  .avis { margin-top: 6px; font-size: 14px; font-style: italic; }
+  .msg { text-align: center; margin-top: 80px; color: var(--wood); }
+  .msg h1 { margin-bottom: 8px; }
+  footer { text-align: center; margin-top: 48px; font-size: 13px; color: var(--wood); opacity: .8; }
+  @media (max-width: 420px) { h1 { font-size: 24px; } .avatar { width: 64px; height: 64px; font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">The Shelf</div>
+  <main id="app"><p class="msg">Ouverture de la bibliothèque…</p></main>
+  <footer>Une bibliothèque tenue sur The Shelf, l'app de lecture cozy.</footer>
+</div>
+<script>
+const SUPABASE_URL = 'https://wxjzzdwswpqcjeduzlce.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XWd2BpwpXw4ytKlzDXZJGw_6vhiRZdV';
+const app = document.getElementById('app');
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function cover(b, cls = 'cover') {
+  if (b.couverture) return `<img class="${cls}" src="${esc(b.couverture)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;
+  return `<div class="${cls} fallback">${esc(b.titre)}</div>`;
+}
+const stars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
+
+function message(title, text) {
+  app.innerHTML = `<div class="msg"><h1>${esc(title)}</h1><p>${esc(text)}</p></div>`;
+}
+
+async function load() {
+  const pseudo = new URLSearchParams(location.search).get('u');
+  if (!pseudo) return message('The Shelf', 'Aucun profil indiqué dans le lien.');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/profil_public`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_pseudo: pseudo }),
+    });
+    const p = await res.json();
+    if (!res.ok || !p) return message('Profil introuvable', 'Ce profil est privé ou n\'existe pas.');
+    render(p);
+  } catch (e) {
+    message('Oups', 'Impossible de charger ce profil pour le moment.');
+  }
+}
+
+function render(p) {
+  document.title = `${p.pseudo} · The Shelf`;
+  const termines = p.termines || [], enCours = p.en_cours || [], vitrine = p.vitrine || [];
+  const initial = (p.pseudo || '?').charAt(0).toUpperCase();
+  const avis = termines.filter(b => b.note || b.avis);
+  app.innerHTML = `
+    <header>
+      <div class="avatar">${p.photo_url ? `<img src="${esc(p.photo_url)}" alt="">` : esc(initial)}</div>
+      <div><h1>${esc(p.pseudo)}</h1>
+        <div class="sub">Niveau ${esc(p.niveau ?? 1)}${p.titre ? ' · ' + esc(p.titre) : ''}</div></div>
+    </header>
+    ${p.bio ? `<p class="bio">${esc(p.bio)}</p>` : ''}
+    <div class="stats">
+      <div class="stat"><b>${termines.length}</b><span>terminés</span></div>
+      <div class="stat"><b>${enCours.length}</b><span>en cours</span></div>
+      <div class="stat"><b>${esc(p.streak ?? 0)}</b><span>jours de suite</span></div>
+    </div>
+    ${vitrine.length ? `<h2>Coups de cœur</h2>
+      <div class="shelf"><div class="row">${vitrine.map(b => `<div class="book" title="${esc(b.titre)}">${cover(b)}</div>`).join('')}</div></div>` : ''}
+    ${enCours.length ? `<h2>En ce moment</h2>
+      <div class="row">${enCours.map(b => `<div class="book" title="${esc(b.titre)}">${cover(b)}</div>`).join('')}</div>` : ''}
+    <h2>L'étagère</h2>
+    ${termines.length ? `<div class="shelf"><div class="row">${termines.map(b => `<div class="book" title="${esc(b.titre)} · ${esc(b.auteur)}">${cover(b)}</div>`).join('')}</div></div>`
+      : '<p class="a">L\'étagère attend son premier livre.</p>'}
+    ${avis.length ? `<h2>Avis</h2><div class="list">${avis.map(b => `
+      <div class="book">${cover(b)}<div>
+        <div class="t">${esc(b.titre)}</div><div class="a">${esc(b.auteur)}</div>
+        ${b.note ? `<div class="stars">${stars(b.note)}</div>` : ''}
+        ${b.avis ? `<p class="avis">« ${esc(b.avis)} »</p>` : ''}
+      </div></div>`).join('')}</div>` : ''}
+  `;
+}
+load();
+</script>
+</body>
+</html>
